@@ -1,15 +1,70 @@
+const { isSameDay, set, isAfter, isBefore } = require('date-fns');
 const axios = require('axios');
 const { Client } = require('discord.js');
 const client = new Client();
 
+const validCommands = ['today', 'info'];
+let lastChecked = new Date(2020, 1, 1);
+let hasAnnounced = false;
+
 client.on('ready', async () => {
   console.log(`Logged in as ${client.user.tag}!`);
-
-  await getEvents();
-  setInterval(getEvents, 60000 * 60 * 24); // 1 min *  every hour
+  await checkDateTime();
+  setInterval(checkDateTime, 60000 * 60); // every hour
 });
 
-async function getEvents() {
+client.on('message', async (message) => {
+  const prefix = '$';
+
+  if (!message.content.startsWith(prefix)) return;
+
+  const args = message.content.slice(prefix.length).trim().split(/ +/g);
+
+  const command = args.shift().toLowerCase();
+  if (!validCommands.includes(command)) return;
+
+  let now = new Date();
+
+  if (command === 'today') {
+    await getEvents(true);
+  } else if (command === 'info') {
+    let content =
+      `Current server time: ${now}\n` +
+      `Last checked: ${lastChecked}\n` +
+      `Has announced today: ${hasAnnounced}`;
+    message.reply(content);
+  }
+});
+
+async function checkDateTime() {
+  let now = new Date();
+  let startTime = set(now, {
+    hours: 8,
+    minutes: 0,
+    seconds: 0,
+    milliseconds: 0
+  });
+  let endTime = set(now, {
+    hours: 8,
+    minutes: 0,
+    seconds: 0,
+    milliseconds: 0
+  });
+
+  if (!isSameDay(lastChecked, now)) {
+    hasAnnounced = false;
+  } else if (
+    isSameDay(lastChecked, now) &&
+    isAfter(now, startTime) &&
+    isBefore(now, endTime)
+  ) {
+    await getEvents();
+  }
+
+  lastChecked = now;
+}
+
+async function getEvents(byPass = false) {
   const channel = client.channels.cache.find((c) => c.name === 'announcements');
 
   await axios
@@ -23,9 +78,12 @@ async function getEvents() {
       response.data.events.forEach((e) => {
         message += `\n• ${e}`;
       });
-      channel.send(message, {
-        files: response.data.villager_images
-      });
+      if (!hasAnnounced || byPass)
+        channel.send(message, {
+          files: response.data.villager_images
+        });
+
+      hasAnnounced = true;
     });
 }
 

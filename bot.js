@@ -28,7 +28,7 @@ client.on('message', async (message) => {
   if (command === 'today') {
     await getEvents(true);
   } else if (command === 'villager') {
-    await getVillager(message);
+    await getVillager(message, args);
   } else if (command === 'info') {
     let content =
       `Current server time: ${now}\n` +
@@ -89,32 +89,37 @@ async function getEvents(byPass = false) {
     });
 }
 
-async function getVillager(message) {
+async function getVillager(message, args) {
   const errorMsg = 'Invalid command. Try `$villager <name>`.';
   let input = 0;
   if (args.length != 1) return message.reply(errorMsg);
+  input = args[0];
 
   await axios
-    .get(`https://nookipedia.com/villager/${input}/`, {
+    .get(`https://nookipedia.com/api/villager/${input}/`, {
       headers: {
         'x-api-key': process.env.API_KEY
       }
     })
     .then(function (response) {
-      let content = '';
-      if (response.data.error) content = response.data.error;
-      else
-        content =
-          `**${response.data.message}**\n` +
-          `Name: ${response.data.name}\n` +
-          `Gender: ${response.data.gender}\n` +
-          `Personality: ${response.data.personality}\n` +
-          `Species: ${response.data.species}\n` +
-          `Birthday: ${response.data.birthday}\n` +
-          `Favorite Clothing: ${response.data.favclothing}\n` +
-          `Least Favorite Clothing: ${leastfavclothing}`;
+      let content =
+        `**${response.data.message}**\n` +
+        `Name: ${response.data.name}\n` +
+        `Gender: ${response.data.gender}\n` +
+        `Personality: ${response.data.personality}\n` +
+        `Species: ${response.data.species}\n` +
+        `Birthday: ${response.data.birthday}\n` +
+        `Favorite Clothing: ${response.data.favclothing}\n` +
+        `Least Favorite Clothing: ${response.data.leastfavclothing}`;
 
-      message.reply(content);
+      message.reply(content, { files: [response.data.image] });
+    })
+    .catch((error) => {
+      if (error.response.data.error) {
+        message.reply(error.response.data.error);
+        return;
+      }
+      console.log(error);
     });
 }
 

@@ -45,7 +45,7 @@ async function checkDateTime() {
     milliseconds: 0
   });
   let endTime = set(now, {
-    hours: 8,
+    hours: 9,
     minutes: 0,
     seconds: 0,
     milliseconds: 0

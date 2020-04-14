@@ -90,8 +90,7 @@ async function getEvents(byPass = false) {
 }
 
 async function getVillager(message) {
-  const errorMsg =
-    'Invalid command. Try `$villager <name>`';
+  const errorMsg = 'Invalid command. Try `$villager <name>`.';
   let input = 0;
   if (args.length != 1) return message.reply(errorMsg);
 
@@ -102,20 +101,20 @@ async function getVillager(message) {
       }
     })
     .then(function (response) {
-      if (response.data.error)
-        let message = response.data.error;
+      let content = '';
+      if (response.data.error) content = response.data.error;
       else
-        let message =
-          `**${response.data.message}**\n` 
-          + `Name: ${response.data.name}\n`
-          + `Gender: ${response.data.gender}\n`
-          + `Personality: ${response.data.personality}\n`
-          + `Species: ${response.data.species}\n`
-          + `Birthday: ${response.data.birthday}\n`
-          + `Favorite Clothing: ${response.data.favclothing}\n`
-          + `Least Favorite Clothing: ${leastfavclothing}`
+        content =
+          `**${response.data.message}**\n` +
+          `Name: ${response.data.name}\n` +
+          `Gender: ${response.data.gender}\n` +
+          `Personality: ${response.data.personality}\n` +
+          `Species: ${response.data.species}\n` +
+          `Birthday: ${response.data.birthday}\n` +
+          `Favorite Clothing: ${response.data.favclothing}\n` +
+          `Least Favorite Clothing: ${leastfavclothing}`;
 
-      message.reply(message);
+      message.reply(content);
     });
 }
 

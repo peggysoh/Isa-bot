@@ -3,7 +3,7 @@ const axios = require('axios');
 const { Client } = require('discord.js');
 const client = new Client();
 
-const validCommands = ['today', 'info'];
+const validCommands = ['today', 'info', 'villager'];
 let lastChecked = new Date(2020, 1, 1);
 let hasAnnounced = false;
 
@@ -27,6 +27,8 @@ client.on('message', async (message) => {
 
   if (command === 'today') {
     await getEvents(true);
+  } else if (command === 'villager') {
+    await getVillager(message);
   } else if (command === 'info') {
     let content =
       `Current server time: ${now}\n` +
@@ -84,6 +86,36 @@ async function getEvents(byPass = false) {
         });
 
       hasAnnounced = true;
+    });
+}
+
+async function getVillager(message) {
+  const errorMsg =
+    'Invalid command. Try `$villager <name>`';
+  let input = 0;
+  if (args.length != 1) return message.reply(errorMsg);
+
+  await axios
+    .get(`https://nookipedia.com/villager/${input}/`, {
+      headers: {
+        'x-api-key': process.env.API_KEY
+      }
+    })
+    .then(function (response) {
+      if (response.data.error)
+        let message = response.data.error;
+      else
+        let message =
+          `**${response.data.message}**\n` 
+          + `Name: ${response.data.name}\n`
+          + `Gender: ${response.data.gender}\n`
+          + `Personality: ${response.data.personality}\n`
+          + `Species: ${response.data.species}\n`
+          + `Birthday: ${response.data.birthday}\n`
+          + `Favorite Clothing: ${response.data.favclothing}\n`
+          + `Least Favorite Clothing: ${leastfavclothing}`
+
+      message.reply(message);
     });
 }
 

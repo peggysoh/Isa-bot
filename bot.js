@@ -120,7 +120,8 @@ async function getVillager(message, args) {
           !!response.data.leastfavclothing ? response.data.leastfavclothing : ''
         }`;
 
-      if (response.data.image) message.reply(content, { files: images });
+      if (response.data.image)
+        message.reply(content, { files: [response.data.image] });
       else message.reply(content);
     })
     .catch((error) => {

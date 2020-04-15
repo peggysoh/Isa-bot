@@ -112,7 +112,8 @@ async function getVillager(message, args) {
         `Favorite Clothing: ${response.data.favclothing || ''}\n` +
         `Least Favorite Clothing: ${response.data.leastfavclothing || ''}`;
 
-      message.reply(content, { files: [response.data.image] });
+      let images = [response.data.image] || [];
+      message.reply(content, { files: images });
     })
     .catch((error) => {
       if (error.response.data.error) {

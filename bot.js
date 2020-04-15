@@ -103,14 +103,14 @@ async function getVillager(message, args) {
     })
     .then(function (response) {
       let content =
-        `**${response.data.message}**\n` +
-        `Name: ${response.data.name}\n` +
-        `Gender: ${response.data.gender}\n` +
-        `Personality: ${response.data.personality}\n` +
-        `Species: ${response.data.species}\n` +
-        `Birthday: ${response.data.birthday}\n` +
-        `Favorite Clothing: ${response.data.favclothing}\n` +
-        `Least Favorite Clothing: ${response.data.leastfavclothing}`;
+        `**${response.data.message ?? ''}**\n` +
+        `Name: ${response.data.name ?? ''}\n` +
+        `Gender: ${response.data.gender ?? ''}\n` +
+        `Personality: ${response.data.personality ?? ''}\n` +
+        `Species: ${response.data.species ?? ''}\n` +
+        `Birthday: ${response.data.birthday ?? ''}\n` +
+        `Favorite Clothing: ${response.data.favclothing ?? ''}\n` +
+        `Least Favorite Clothing: ${response.data.leastfavclothing ?? ''}`;
 
       message.reply(content, { files: [response.data.image] });
     })

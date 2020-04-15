@@ -102,18 +102,20 @@ async function getVillager(message, args) {
       }
     })
     .then(function (response) {
-      let content =
-        `**${response.data.message || ''}**\n` +
-        `Name: ${response.data.name || ''}\n` +
-        `Gender: ${response.data.gender || ''}\n` +
-        `Personality: ${response.data.personality || ''}\n` +
-        `Species: ${response.data.species || ''}\n` +
-        `Birthday: ${response.data.birthday || ''}\n` +
-        `Favorite Clothing: ${response.data.favclothing || ''}\n` +
-        `Least Favorite Clothing: ${response.data.leastfavclothing || ''}`;
+      let content = 
+        `**${!!response.data.message ? response.data.message : ''}**\n` +
+        `Name: ${!!response.data.name ? response.data.name : ''}\n` +
+        `Gender: ${!!response.data.gender ? response.data.gender : ''}\n` +
+        `Personality: ${!!response.data.personality ? response.data.personality : ''}\n` +
+        `Species: ${!!response.data.species ? response.data.species : ''}\n` +
+        `Birthday: ${!!response.data.birthday ? response.data.birthday : ''}\n` +
+        `Favorite Clothing: ${!!response.data.favclothing ? response.data.favclothing : ''}\n` +
+        `Least Favorite Clothing: ${!!response.data.leastfavclothing ? response.data.leastfavclothing : ''}`;
 
-      let images = [response.data.image] || [];
-      message.reply(content, { files: images });
+      if (response.data.image);
+        message.reply(content, { files: images });
+      else
+        message.reply(content);
     })
     .catch((error) => {
       if (error.response.data.error) {

@@ -1,11 +1,22 @@
-const { isSameDay, set, isAfter, isBefore } = require('date-fns');
+const {
+  isSameDay,
+  set,
+  isAfter,
+  isBefore,
+  endOfMonth,
+  differenceInDays
+} = require('date-fns');
 const axios = require('axios');
 const { Client } = require('discord.js');
 const client = new Client();
 
-const validCommands = ['today', 'info', 'villager'];
+const validCommands = ['today', 'info', 'villager', 'update'];
 let lastChecked = new Date(2020, 1, 1);
 let hasAnnounced = false;
+let isEndOfMonth = false;
+let isNewMonth = false;
+let leavingImage = '';
+let comingImage = '';
 
 client.on('ready', async () => {
   console.log(`Logged in as ${client.user.tag}!`);
@@ -29,11 +40,15 @@ client.on('message', async (message) => {
     await getEvents(true);
   } else if (command === 'villager') {
     await getVillager(message, args);
+  } else if (command === 'update') {
+    await updateImages(message, args);
   } else if (command === 'info') {
     let content =
       `Current server time: ${now}\n` +
       `Last checked: ${lastChecked}\n` +
-      `Has announced today: ${hasAnnounced}`;
+      `Has announced today: ${hasAnnounced}\n` +
+      `Is end of month: ${isEndOfMonth}\n` +
+      `Is new month: ${isNewMonth}`;
     message.reply(content);
   }
 });
@@ -53,6 +68,9 @@ async function checkDateTime() {
     milliseconds: 0
   });
 
+  isNewMonth = isSameDay(endOfMonth(now), now);
+  isEndOfMonth = differenceInDays(now, endOfMonth(now)) === -2;
+
   if (!isSameDay(lastChecked, now)) {
     hasAnnounced = false;
   } else if (
@@ -69,29 +87,35 @@ async function checkDateTime() {
 async function getEvents(byPass = false) {
   const channel = client.channels.cache.find((c) => c.name === 'announcements');
 
-  await axios
-    .get('https://nookipedia.com/api/today/', {
-      headers: {
-        'x-api-key': process.env.API_KEY
-      }
-    })
-    .then(function (response) {
-      let message = `**${response.data.message}**`;
-      response.data.events.forEach((e) => {
-        message += `\n• ${e}`;
-      });
-      if (!hasAnnounced || byPass)
-        channel.send(message, {
-          files: response.data.villager_images
+  if (!hasAnnounced || byPass) {
+    await axios
+      .get('https://nookipedia.com/api/today/', {
+        headers: {
+          'x-api-key': process.env.API_KEY
+        }
+      })
+      .then(function (response) {
+        let message = `**${response.data.message}**`;
+        response.data.events.forEach((e) => {
+          message += `\n• ${e}`;
         });
+        channel
+          .send(message, {
+            files: response.data.villager_images
+          })
+          .then((_) => {
+            if (isEndOfMonth) getLeaving(channel);
+            if (isNewMonth) getComing(channel);
+          });
 
-      hasAnnounced = true;
-    });
+        hasAnnounced = true;
+      });
+  }
 }
 
 async function getVillager(message, args) {
   const errorMsg = 'Invalid command. Try `$villager <name>`.';
-  let input = 0;
+  let input = '';
   if (args.length != 1) return message.reply(errorMsg);
   input = args[0];
 
@@ -130,6 +154,42 @@ async function getVillager(message, args) {
         return;
       }
       console.log(error);
+    });
+}
+
+async function updateImages(message, args) {
+  const errorMsg = 'Invalid command. Try `$update <leaving/coming> <image>`.';
+  let input = '',
+    image = '';
+  if (args.length != 2) return message.reply(errorMsg);
+  input = args[0];
+  image = args[1];
+
+  if (input === 'leaving') {
+    leavingImage = image;
+    message.reply('Only a few days left to end of the month!', {
+      files: [leavingImage]
+    });
+  }
+  if (input === 'coming') {
+    comingImage = image;
+    message.reply('New fish and bugs coming!', {
+      files: [comingImage]
+    });
+  }
+}
+
+async function getLeaving(channel) {
+  if (leavingImage)
+    channel.send('• Only a few days left to end of the month!', {
+      files: [leavingImage]
+    });
+}
+
+async function getComing(channel) {
+  if (comingImage)
+    channel.send('• New fish and bugs coming!', {
+      files: [comingImage]
     });
 }
 

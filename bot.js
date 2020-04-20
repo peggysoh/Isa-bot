@@ -154,6 +154,7 @@ async function getVillager(message, args) {
         return;
       }
       console.log(error);
+      message.reply('Something went wrong');
     });
 }
 

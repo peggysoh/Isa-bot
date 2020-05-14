@@ -205,7 +205,7 @@ async function getComing(channel) {
 }
 
 async function getFossils(message) {
-  message.repy(`Fossils sheet: ${fossilsUrl}`);
+  message.reply(`Fossils sheet: ${fossilsUrl}`);
 }
 
 client.login(process.env.BOT_TOKEN);

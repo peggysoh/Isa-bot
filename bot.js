@@ -10,13 +10,15 @@ const axios = require('axios');
 const { Client } = require('discord.js');
 const client = new Client();
 
-const validCommands = ['today', 'info', 'villager', 'update'];
+const validCommands = ['today', 'info', 'villager', 'update', 'fossils'];
 let lastChecked = new Date(2020, 1, 1);
 let hasAnnounced = false;
 let isEndOfMonth = false;
 let isNewMonth = false;
 let leavingImage = '';
 let comingImage = '';
+let fossilsUrl =
+  'https://docs.google.com/spreadsheets/d/1w2n5pa8ltyW85UfLaoED2_bfnKOzFq98RyTx75GDrVc/edit?usp=sharing';
 
 client.on('ready', async () => {
   console.log(`Logged in as ${client.user.tag}!`);
@@ -41,7 +43,9 @@ client.on('message', async (message) => {
   } else if (command === 'villager') {
     await getVillager(message, args);
   } else if (command === 'update') {
-    await updateImages(message, args);
+    await update(message, args);
+  } else if (command === 'fossils') {
+    await getFossils(message);
   } else if (command === 'info') {
     let content =
       `Current server time: ${now}\n` +
@@ -118,9 +122,9 @@ async function getVillager(message, args) {
   let input = '';
   if (args.length != 1) return message.reply(errorMsg);
   input = args[0];
-
+  let villager = encodeURI(input).replace(/[!'()*]/g, escape);
   await axios
-    .get(`https://nookipedia.com/api/villager/${input}/`, {
+    .get(`https://nookipedia.com/api/villager/${villager}/`, {
       headers: {
         'x-api-key': process.env.API_KEY
       }
@@ -158,25 +162,31 @@ async function getVillager(message, args) {
     });
 }
 
-async function updateImages(message, args) {
-  const errorMsg = 'Invalid command. Try `$update <leaving/coming> <image>`.';
+async function update(message, args) {
+  const errorMsg =
+    'Invalid command. Try `$update <leaving/coming/fossils> <url>`.';
   let input = '',
-    image = '';
+    url = '';
   if (args.length != 2) return message.reply(errorMsg);
   input = args[0];
-  image = args[1];
+  url = args[1];
 
   if (input === 'leaving') {
-    leavingImage = image;
+    leavingImage = url;
     message.reply('Only a few days left to end of the month!', {
       files: [leavingImage]
     });
   }
+
   if (input === 'coming') {
-    comingImage = image;
+    comingImage = url;
     message.reply('New fish and bugs coming!', {
       files: [comingImage]
     });
+  }
+
+  if (input === 'fossils') {
+    fossils = url;
   }
 }
 
@@ -192,6 +202,10 @@ async function getComing(channel) {
     channel.send('• New fish and bugs coming!', {
       files: [comingImage]
     });
+}
+
+async function getFossils(message) {
+  message.repy(`Fossils sheet: ${fossilsUrl}`);
 }
 
 client.login(process.env.BOT_TOKEN);

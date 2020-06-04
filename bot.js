@@ -10,15 +10,13 @@ const axios = require('axios');
 const { Client } = require('discord.js');
 const client = new Client();
 
-const validCommands = ['today', 'info', 'villager', 'update', 'fossils'];
+const validCommands = ['today', 'info', 'villager', 'update'];
 let lastChecked = new Date(2020, 1, 1);
 let hasAnnounced = false;
 let isEndOfMonth = false;
 let isNewMonth = false;
 let leavingImage = '';
 let comingImage = '';
-let fossilsUrl =
-  'https://docs.google.com/spreadsheets/d/1w2n5pa8ltyW85UfLaoED2_bfnKOzFq98RyTx75GDrVc/edit?usp=sharing';
 
 client.on('ready', async () => {
   console.log(`Logged in as ${client.user.tag}!`);
@@ -44,8 +42,6 @@ client.on('message', async (message) => {
     await getVillager(message, args);
   } else if (command === 'update') {
     await update(message, args);
-  } else if (command === 'fossils') {
-    await getFossils(message);
   } else if (command === 'info') {
     let content =
       `Current server time: ${now}\n` +
@@ -120,51 +116,62 @@ async function getEvents(byPass = false) {
 async function getVillager(message, args) {
   const errorMsg = 'Invalid command. Try `$villager <name>`.';
   let input = '';
-  if (args.length != 1) return message.reply(errorMsg);
-  input = args[0];
+  if (args.length < 1) return message.reply(errorMsg);
+  input = args.join(' ');
   let villager = encodeURI(input).replace(/[!'()*]/g, escape);
+  console.log(villager);
   await axios
-    .get(`https://nookipedia.com/api/villager/${villager}/`, {
-      headers: {
-        'x-api-key': process.env.API_KEY
-      }
-    })
+    .get(`https://acnh.tnrd.net/api/v3/villagers/name/${villager}/`)
     .then(function (response) {
       let content =
-        `**${!!response.data.message ? response.data.message : ''}**\n` +
-        `Name: ${!!response.data.name ? response.data.name : ''}\n` +
-        `Gender: ${!!response.data.gender ? response.data.gender : ''}\n` +
-        `Personality: ${
+        `\`\`\`\n` +
+        `Name:            ${!!response.data.name ? response.data.name : ''}\n` +
+        `Gender:          ${
+          !!response.data.gender ? response.data.gender : ''
+        }\n` +
+        `Personality:     ${
           !!response.data.personality ? response.data.personality : ''
         }\n` +
-        `Species: ${!!response.data.species ? response.data.species : ''}\n` +
-        `Birthday: ${
+        `Species:         ${
+          !!response.data.species ? response.data.species : ''
+        }\n` +
+        `Birthday:        ${
           !!response.data.birthday ? response.data.birthday : ''
         }\n` +
-        `Favorite Clothing: ${
-          !!response.data.favclothing ? response.data.favclothing : ''
+        `Favorite Styles: ${
+          !!response.data.style1 ? response.data.style1 : ''
+        }${
+          !!response.data.style2 && response.data.style2 != response.data.style1
+            ? ', ' + response.data.style2
+            : ''
         }\n` +
-        `Least Favorite Clothing: ${
-          !!response.data.leastfavclothing ? response.data.leastfavclothing : ''
-        }`;
+        `Favorite Colors: ${
+          !!response.data.color1 ? response.data.color1 : ''
+        }${
+          !!response.data.color2 && response.data.color2 != response.data.color1
+            ? ', ' + response.data.color2
+            : ''
+        }\n` +
+        `\`\`\``;
 
-      if (response.data.image)
-        message.reply(content, { files: [response.data.image] });
+      if (response.data.iconImage)
+        message.reply(content, { files: [response.data.iconImage] });
       else message.reply(content);
     })
     .catch((error) => {
-      if (error.response.data.error) {
-        message.reply(error.response.data.error);
+      if (error.response.status === 404) {
+        message.reply(`I could not find a villager named ${villager}.`);
         return;
       }
       console.log(error);
-      message.reply('Something went wrong');
+      message.reply(
+        `Something went wrong. ${error.response.status}: ${error.response.statusText}`
+      );
     });
 }
 
 async function update(message, args) {
-  const errorMsg =
-    'Invalid command. Try `$update <leaving/coming/fossils> <url>`.';
+  const errorMsg = 'Invalid command. Try `$update <leaving/coming> <url>`.';
   let input = '',
     url = '';
   if (args.length != 2) return message.reply(errorMsg);
@@ -184,10 +191,6 @@ async function update(message, args) {
       files: [comingImage]
     });
   }
-
-  if (input === 'fossils') {
-    fossils = url;
-  }
 }
 
 async function getLeaving(channel) {
@@ -202,10 +205,6 @@ async function getComing(channel) {
     channel.send('• New fish and bugs coming!', {
       files: [comingImage]
     });
-}
-
-async function getFossils(message) {
-  message.reply(`Fossils sheet: ${fossilsUrl}`);
 }
 
 client.login(process.env.BOT_TOKEN);

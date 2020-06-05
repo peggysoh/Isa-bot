@@ -80,7 +80,7 @@ async function checkDateTime() {
     milliseconds: 0
   });
 
-  isNewMonth = isSameDay(endOfMonth(now), now);
+  isNewMonth = now.getDate() === 1;
   isEndOfMonth = differenceInDays(now, endOfMonth(now)) === -2;
 
   if (!isSameDay(lastChecked, now)) {

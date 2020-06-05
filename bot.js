@@ -7,16 +7,24 @@ const {
   differenceInDays
 } = require('date-fns');
 const axios = require('axios');
+const Months = require('./months.js');
 const { Client } = require('discord.js');
 const client = new Client();
 
-const validCommands = ['today', 'info', 'villager', 'update'];
+const validCommands = [
+  'today',
+  'info',
+  'help',
+  'villager',
+  'bug',
+  'fish',
+  'new',
+  'leaving'
+];
 let lastChecked = new Date(2020, 1, 1);
 let hasAnnounced = false;
 let isEndOfMonth = false;
 let isNewMonth = false;
-let leavingImage = '';
-let comingImage = '';
 
 client.on('ready', async () => {
   console.log(`Logged in as ${client.user.tag}!`);
@@ -37,19 +45,23 @@ client.on('message', async (message) => {
   let now = new Date();
 
   if (command === 'today') {
-    await getEvents(true);
+    await getEvents(now, true);
   } else if (command === 'villager') {
     await getVillager(message, args);
-  } else if (command === 'update') {
-    await update(message, args);
-  } else if (command === 'info') {
-    let content =
-      `Current server time: ${now}\n` +
-      `Last checked: ${lastChecked}\n` +
-      `Has announced today: ${hasAnnounced}\n` +
-      `Is end of month: ${isEndOfMonth}\n` +
-      `Is new month: ${isNewMonth}`;
+  } else if (command === 'new') {
+    const content = await getNewCritters(now.getMonth());
     message.reply(content);
+  } else if (command === 'leaving') {
+    const content = await getLeavingCritters(now.getMonth());
+    message.reply(content);
+  } else if (command === 'bug') {
+    await getBug(message, args, now.getMonth());
+  } else if (command === 'fish') {
+    await getFish(message, args, now.getMonth());
+  } else if (command === 'info') {
+    getInfo(message, now);
+  } else if (command === 'help') {
+    getHelp(message);
   }
 });
 
@@ -78,13 +90,13 @@ async function checkDateTime() {
     isAfter(now, startTime) &&
     isBefore(now, endTime)
   ) {
-    await getEvents();
+    await getEvents(now);
   }
 
   lastChecked = now;
 }
 
-async function getEvents(byPass = false) {
+async function getEvents(now, byPass = false) {
   const channel = client.channels.cache.find((c) => c.name === 'announcements');
 
   if (!hasAnnounced || byPass) {
@@ -103,9 +115,15 @@ async function getEvents(byPass = false) {
           .send(message, {
             files: response.data.villager_images
           })
-          .then((_) => {
-            if (isEndOfMonth) getLeaving(channel);
-            if (isNewMonth) getComing(channel);
+          .then(async () => {
+            if (isEndOfMonth) {
+              const content = await getLeavingCritters(now.getMonth());
+              channel.send(content);
+            }
+            if (isNewMonth) {
+              const content = await getNewCritters(now.getMonth());
+              channel.send(content);
+            }
           });
 
         hasAnnounced = true;
@@ -115,52 +133,54 @@ async function getEvents(byPass = false) {
 
 async function getVillager(message, args) {
   const errorMsg = 'Invalid command. Try `$villager <name>`.';
-  let input = '';
   if (args.length < 1) return message.reply(errorMsg);
-  input = args.join(' ');
-  let villager = encodeURI(input).replace(/[!'()*]/g, escape);
-  console.log(villager);
+
+  const villager = encodeURI(args.join(' ')).replace(/[!'()*]/g, escape);
+  let image = '';
+
+  await axios
+    .get(`https://nookipedia.com/api/villager/${villager}/`, {
+      headers: {
+        'x-api-key': process.env.API_KEY
+      }
+    })
+    .then(function (response) {
+      if (response.data.image) image = response.data.image;
+    })
+    .catch((error) => {
+      console.log(error);
+    });
+
   await axios
     .get(`https://acnh.tnrd.net/api/v3/villagers/name/${villager}/`)
     .then(function (response) {
       let content =
         `\`\`\`\n` +
-        `Name:            ${!!response.data.name ? response.data.name : ''}\n` +
-        `Gender:          ${
-          !!response.data.gender ? response.data.gender : ''
-        }\n` +
-        `Personality:     ${
-          !!response.data.personality ? response.data.personality : ''
-        }\n` +
-        `Species:         ${
-          !!response.data.species ? response.data.species : ''
-        }\n` +
-        `Birthday:        ${
-          !!response.data.birthday ? response.data.birthday : ''
-        }\n` +
-        `Favorite Styles: ${
-          !!response.data.style1 ? response.data.style1 : ''
-        }${
-          !!response.data.style2 && response.data.style2 != response.data.style1
+        `Name:            ${response.data.name}\n` +
+        `Gender:          ${response.data.gender}\n` +
+        `Personality:     ${response.data.personality}\n` +
+        `Species:         ${response.data.species}\n` +
+        `Birthday:        ${response.data.birthday}\n` +
+        `Favorite Styles: ${response.data.style1}${
+          response.data.style2 != response.data.style1
             ? ', ' + response.data.style2
             : ''
         }\n` +
-        `Favorite Colors: ${
-          !!response.data.color1 ? response.data.color1 : ''
-        }${
-          !!response.data.color2 && response.data.color2 != response.data.color1
+        `Favorite Colors: ${response.data.color1}${
+          response.data.color2 != response.data.color1
             ? ', ' + response.data.color2
             : ''
         }\n` +
         `\`\`\``;
 
-      if (response.data.iconImage)
-        message.reply(content, { files: [response.data.iconImage] });
+      if (image === '') image = response.data.iconImage;
+
+      if (image !== '') message.reply(content, { files: [image] });
       else message.reply(content);
     })
     .catch((error) => {
       if (error.response.status === 404) {
-        message.reply(`I could not find a villager named ${villager}.`);
+        message.reply(`I could not find a villager named ${args.join(' ')}.`);
         return;
       }
       console.log(error);
@@ -170,41 +190,188 @@ async function getVillager(message, args) {
     });
 }
 
-async function update(message, args) {
-  const errorMsg = 'Invalid command. Try `$update <leaving/coming> <url>`.';
-  let input = '',
-    url = '';
-  if (args.length != 2) return message.reply(errorMsg);
-  input = args[0];
-  url = args[1];
+async function getBug(message, args, currentMonth) {
+  const errorMsg = 'Invalid command. Try `$bug <name>`.';
+  if (args.length < 1) return message.reply(errorMsg);
 
-  if (input === 'leaving') {
-    leavingImage = url;
-    message.reply('Only a few days left to end of the month!', {
-      files: [leavingImage]
-    });
-  }
+  const bug = encodeURI(args.join(' ')).replace(/[!'()*]/g, escape);
+  const currentMonthName = Months[currentMonth];
 
-  if (input === 'coming') {
-    comingImage = url;
-    message.reply('New fish and bugs coming!', {
-      files: [comingImage]
+  await axios
+    .get(`https://acnh.tnrd.net/api/v3/insects/name/${bug}`)
+    .then(function (response) {
+      let content =
+        `**This bug is ${
+          response.data[currentMonthName][0] === 'NA' ? 'not ' : ''
+        }available this month.**\n` +
+        `\`\`\`\n` +
+        `Name:     ${response.data.name}\n` +
+        `Time:     ${response.data[currentMonthName].join(', ')}\n` +
+        `Location: ${response.data.whereHow}\n` +
+        `Weather:  ${response.data.weather}\n` +
+        `Price:    ${response.data.sell}\n` +
+        `\`\`\``;
+
+      if (response.data.iconImage)
+        message.reply(content, { files: [response.data.iconImage] });
+      else message.reply(content);
+    })
+    .catch((error) => {
+      if (error.response.status === 404) {
+        message.reply(`I could not find a bug named ${args.join(' ')}.`);
+        return;
+      }
+      console.log(error);
+      message.reply(
+        `Something went wrong. ${error.response.status}: ${error.response.statusText}`
+      );
     });
-  }
 }
 
-async function getLeaving(channel) {
-  if (leavingImage)
-    channel.send('• Only a few days left to end of the month!', {
-      files: [leavingImage]
+async function getFish(message, args, currentMonth) {
+  const errorMsg = 'Invalid command. Try `$fish <name>`.';
+  if (args.length < 1) return message.reply(errorMsg);
+
+  const fish = encodeURI(args.join(' ')).replace(/[!'()*]/g, escape);
+  const currentMonthName = Months[currentMonth];
+
+  await axios
+    .get(`https://acnh.tnrd.net/api/v3/fish/name/${fish}`)
+    .then(function (response) {
+      let content =
+        `**This fish is ${
+          response.data[currentMonthName][0] === 'NA' ? 'not ' : ''
+        }available this month.**\n` +
+        `\`\`\`\n` +
+        `Name:     ${response.data.name}\n` +
+        `Time:     ${response.data[currentMonthName].join(', ')}\n` +
+        `Location: ${response.data.whereHow}\n` +
+        `Shadow:   ${response.data.shadow}\n` +
+        `Price:    ${response.data.sell}\n` +
+        `\`\`\``;
+
+      if (response.data.iconImage)
+        message.reply(content, { files: [response.data.iconImage] });
+      else message.reply(content);
+    })
+    .catch((error) => {
+      if (error.response.status === 404) {
+        message.reply(`I could not find a fish named ${args.join(' ')}.`);
+        return;
+      }
+      console.log(error);
+      message.reply(
+        `Something went wrong. ${error.response.status}: ${error.response.statusText}`
+      );
     });
 }
 
-async function getComing(channel) {
-  if (comingImage)
-    channel.send('• New fish and bugs coming!', {
-      files: [comingImage]
+function getNewCritters(currentMonth) {
+  const lastMonth = currentMonth - 1;
+  if (lastMonth < 0) lastMonth = Months.nhDec;
+  return getCrittersByMonth(currentMonth, lastMonth, 'new');
+}
+
+function getLeavingCritters(currentMonth) {
+  const nextMonth = currentMonth + 1;
+  if (nextMonth > 11) nextMonth = Months.nhJan;
+  return getCrittersByMonth(currentMonth, nextMonth, 'leaving');
+}
+
+async function getCrittersByMonth(currentMonth, compareMonth, label) {
+  const currentMonthName = Months[currentMonth];
+  const compareMonthName = Months[compareMonth];
+
+  let content = '';
+  let maxNameLength = 0;
+  let maxTimeLength = 0;
+
+  await axios
+    .get(`https://acnh.tnrd.net/api/v3/fish`)
+    .then(function (response) {
+      let fish = [];
+      content += `**Fish ${label} this month:**\n` + `\`\`\`\n`;
+
+      response.data.forEach((f) => {
+        if (
+          f[currentMonthName][0] !== 'NA' &&
+          f[compareMonthName][0] === 'NA'
+        ) {
+          fish.push(f);
+
+          if (f.name.length > maxNameLength) maxNameLength = f.name.length;
+          if (f[currentMonthName].join(', ').length > maxTimeLength)
+            maxTimeLength = f[currentMonthName].join(', ').length;
+        }
+      });
+
+      fish.forEach((f) => {
+        content +=
+          `${f.name.padEnd(maxNameLength)} | ` +
+          `${f[currentMonthName].join(', ').padEnd(maxTimeLength)}\n`;
+      });
+      content += `\`\`\`\n`;
+    })
+    .catch((error) => {
+      console.log(error);
+      content += `Something went wrong. ${error.response.status}: ${error.response.statusText}\n`;
     });
+
+  maxNameLength = 0;
+  maxTimeLength = 0;
+
+  await axios
+    .get(`https://acnh.tnrd.net/api/v3/insects`)
+    .then(function (response) {
+      let bugs = [];
+      content += `**Bugs ${label} this month:**\n` + `\`\`\`\n`;
+
+      response.data.forEach((b) => {
+        if (
+          b[currentMonthName][0] !== 'NA' &&
+          b[compareMonthName][0] === 'NA'
+        ) {
+          bugs.push(b);
+
+          if (b.name.length > maxNameLength) maxNameLength = b.name.length;
+          if (b[currentMonthName].join(', ').length > maxTimeLength)
+            maxTimeLength = b[currentMonthName].join(', ').length;
+        }
+      });
+
+      bugs.forEach((b) => {
+        content +=
+          `${b.name.padEnd(maxNameLength)} | ` +
+          `${b[currentMonthName].join(', ').padEnd(maxTimeLength)}\n`;
+      });
+      content += `\`\`\`\n`;
+    })
+    .catch((error) => {
+      console.log(error);
+      content += `Something went wrong. ${error.response.status}: ${error.response.statusText}\n`;
+    });
+
+  return content;
+}
+
+function getInfo(message, now) {
+  const content =
+    `Current server time: ${now}\n` +
+    `Last checked: ${lastChecked}\n` +
+    `Has announced today: ${hasAnnounced}\n` +
+    `Is end of month: ${isEndOfMonth}\n` +
+    `Is new month: ${isNewMonth}`;
+  message.reply(content);
+}
+
+function getHelp(message) {
+  const content =
+    'Type `!villager <name>` to look up information about a villager. Example: `!villager agnes`\n' +
+    'Type `!new` to look up what fish and bugs are new this month.\n' +
+    'Type `!leaving` to look up what fish and bugs are leaving this month.\n' +
+    'Type `!fish <name>` to look up information about a fish. Example: `!fish great white shark`\n' +
+    'Type `!bug <name>` to look up information about a bug. Example: `!bug golden stag`';
+  message.reply(content);
 }
 
 client.login(process.env.BOT_TOKEN);
